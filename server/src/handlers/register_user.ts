@@ -1,25 +1,68 @@
+import { db } from '../db';
+import { usersTable, sessionsTable } from '../db/schema';
 import { type RegisterUserInput, type AuthResponse } from '../schema';
+import { eq } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 
 export const registerUser = async (input: RegisterUserInput): Promise<AuthResponse> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is:
-    // 1. Validate that email is not already registered
-    // 2. Hash the password using a secure hashing algorithm (bcrypt)
-    // 3. Create a new user record in the database
-    // 4. Generate a session token for immediate login
-    // 5. Return the user data (without password) and authentication token
-    
-    return Promise.resolve({
-        user: {
-            id: 0, // Placeholder ID
-            email: input.email,
-            first_name: input.first_name,
-            last_name: input.last_name,
-            is_active: true,
-            created_at: new Date(),
-            updated_at: new Date()
-        },
-        token: 'placeholder_jwt_token', // Should be actual JWT or session token
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
-    } as AuthResponse);
+  try {
+    // 1. Check if email is already registered
+    const existingUser = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.email, input.email))
+      .limit(1)
+      .execute();
+
+    if (existingUser.length > 0) {
+      throw new Error('Email already registered');
+    }
+
+    // 2. Hash the password using Bun's built-in password hashing
+    const passwordHash = await Bun.password.hash(input.password);
+
+    // 3. Create a new user record
+    const userResult = await db.insert(usersTable)
+      .values({
+        email: input.email,
+        password_hash: passwordHash,
+        first_name: input.first_name,
+        last_name: input.last_name,
+        is_active: true
+      })
+      .returning()
+      .execute();
+
+    const newUser = userResult[0];
+
+    // 4. Generate a secure session token
+    const sessionToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+    // Create session record
+    await db.insert(sessionsTable)
+      .values({
+        user_id: newUser.id,
+        token: sessionToken,
+        expires_at: expiresAt
+      })
+      .execute();
+
+    // 5. Return user data (without password) and authentication token
+    return {
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        is_active: newUser.is_active,
+        created_at: newUser.created_at,
+        updated_at: newUser.updated_at
+      },
+      token: sessionToken,
+      expires_at: expiresAt
+    };
+  } catch (error) {
+    console.error('User registration failed:', error);
+    throw error;
+  }
 };

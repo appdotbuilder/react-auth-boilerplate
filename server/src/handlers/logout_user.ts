@@ -1,14 +1,20 @@
+import { db } from '../db';
+import { sessionsTable } from '../db/schema';
 import { type ValidateSessionInput } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const logoutUser = async (input: ValidateSessionInput): Promise<{ success: boolean }> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is:
-    // 1. Find the session by token in the database
-    // 2. Delete the session record to invalidate the token
-    // 3. Return success status
-    // 4. Handle cases where token doesn't exist gracefully
-    
-    return Promise.resolve({
-        success: true
-    });
+  try {
+    // Delete the session by token
+    const result = await db.delete(sessionsTable)
+      .where(eq(sessionsTable.token, input.token))
+      .execute();
+
+    // Return success regardless of whether token existed
+    // This prevents information leakage about valid/invalid tokens
+    return { success: true };
+  } catch (error) {
+    console.error('Logout failed:', error);
+    throw error;
+  }
 };

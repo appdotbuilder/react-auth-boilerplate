@@ -1,28 +1,34 @@
+import React from 'react';
+import { AuthProvider, useAuth } from './components/AuthContext';
+import { AuthPage } from './components/AuthPage';
+import { Dashboard } from './components/Dashboard';
+import { LoadingSpinner } from './components/LoadingSpinner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './App.css';
 
+// Protected App Content Component
+const AppContent: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Show loading spinner while checking authentication status
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  // Show dashboard if authenticated, otherwise show auth page
+  return isAuthenticated ? <Dashboard /> : <AuthPage />;
+};
+
+// Main App Component
 function App() {
   return (
-    <div>
-      <div className="gradient"></div>
-      <div className="grid"></div>
-      <div className="container">
-        <h1 className="title">Under Construction</h1>
-        <p className="description">
-          Your app is under construction. It's being built right now!
-        </p>
-        <div className="dots">
-          <div className="dot"></div>
-          <div className="dot"></div>
-          <div className="dot"></div>
+    <ErrorBoundary>
+      <AuthProvider>
+        <div className="App">
+          <AppContent />
         </div>
-        <footer className="footer">
-          Built with ❤️ by{" "}
-          <a href="https://app.build" target="_blank" className="footer-link">
-            app.build
-          </a>
-        </footer>
-      </div>
-    </div>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
